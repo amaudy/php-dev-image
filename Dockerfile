@@ -5,7 +5,7 @@ FROM php:8.2-fpm
 WORKDIR /var/www/html
 
 # Install system dependencies
-RUN apt-get update && apt-get install -y \
+RUN apt-get update && DEBIAN_FRONTEND=noninteractive apt-get install -y \
     build-essential \
     libpng-dev \
     libjpeg-dev \
@@ -15,16 +15,24 @@ RUN apt-get update && apt-get install -y \
     zip \
     unzip \
     git \
-    curl && \
-    docker-php-ext-configure gd --with-freetype --with-jpeg && \
-    docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
+    curl \
+    && rm -rf /var/lib/apt/lists/* \
+    && docker-php-ext-configure gd --with-freetype --with-jpeg \
+    && docker-php-ext-install pdo_mysql mbstring exif pcntl bcmath gd
 
-# Install Composer
-COPY --from=composer:2 /usr/bin/composer /usr/bin/composer
+# Get latest Composer
+COPY --from=composer:latest /usr/bin/composer /usr/bin/composer
 
-# Set permissions and install Laravel dependencies
-RUN chown -R www-data:www-data /var/www/html && \
-    chmod -R 755 /var/www/html
+# Create system user to run Composer and Artisan Commands
+RUN useradd -G www-data,root -u 1000 -d /home/dev dev
+RUN mkdir -p /home/dev/.composer && \
+    chown -R dev:dev /home/dev
+
+# Set proper permissions
+RUN chown -R dev:dev /var/www/html
+
+# Switch to non-root user
+USER dev
 
 # Install Node.js and npm (optional, for Laravel Mix or Vite)
 RUN curl -fsSL https://deb.nodesource.com/setup_20.x | bash - && \
